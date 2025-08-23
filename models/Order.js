@@ -1,9 +1,8 @@
 const mongoose = require("mongoose");
 
 const orderItemSchema = new mongoose.Schema({
-  product: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: "Product",
+  prodId: {
+    type: String,
     required: true,
   },
   quantity: {
@@ -11,14 +10,8 @@ const orderItemSchema = new mongoose.Schema({
     required: true,
     min: [1, "Quantity must be at least 1"],
   },
-  size: {
-    type: String,
-    required: true,
-  },
-  color: {
-    type: String,
-    required: true,
-  },
+  size: String,
+  color: String,
   price: {
     type: Number,
     required: true,
@@ -27,10 +20,37 @@ const orderItemSchema = new mongoose.Schema({
 
 const orderSchema = new mongoose.Schema(
   {
+    trackingId: {
+      type: String,
+      unique: true,
+      // Remove required: true since it's auto-generated
+    },
+    // User field is optional for guest orders
     user: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
+      required: false, // Made optional for guest orders
+    },
+    // Guest order fields
+    guestInfo: {
+      name: {
+        type: String,
+        required: function () {
+          return !this.user;
+        }, // Required if no user
+        trim: true,
+      },
+      email: {
+        type: String,
+        required: true, // Always required for both guest and auth users
+        trim: true,
+        lowercase: true,
+      },
+      phoneNumber: {
+        type: String,
+        required: true, // Always required for both guest and auth users
+        trim: true,
+      },
     },
     items: [orderItemSchema],
     totalAmount: {
@@ -39,14 +59,7 @@ const orderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: [
-        "pending",
-        "confirmed",
-        "processing",
-        "shipped",
-        "delivered",
-        "cancelled",
-      ],
+      enum: ["pending", "processing", "shipped", "delivered", "cancelled"],
       default: "pending",
     },
     shippingAddress: {
@@ -56,32 +69,57 @@ const orderSchema = new mongoose.Schema(
       zipCode: String,
       country: String,
     },
-    paymentStatus: {
-      type: String,
-      enum: ["pending", "completed", "failed", "refunded"],
-      default: "pending",
+    paymentDetails: {
+      method: {
+        type: String,
+        enum: ["cod", "bank", "card"],
+        required: true,
+      },
+      status: {
+        type: String,
+        enum: ["pending", "paid", "failed"],
+        default: "pending",
+      },
+      screenshot: {
+        type: String,
+        default: null,
+      },
     },
-    paymentMethod: {
+    // Order type to distinguish between guest and authenticated
+    orderType: {
       type: String,
-      enum: ["credit_card", "debit_card", "paypal", "cash_on_delivery"],
-      required: true,
+      enum: ["guest", "authenticated"],
+      default: "authenticated",
     },
-    trackingNumber: String,
-    estimatedDelivery: Date,
-    notes: String,
   },
   {
     timestamps: true,
   }
 );
 
-// Calculate total amount before saving
+// Pre-save hook to generate trackingId and calculate totalAmount
 orderSchema.pre("save", function (next) {
+  // Generate trackingId if not present
+  if (!this.trackingId) {
+    const timestamp = Date.now();
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    this.trackingId = `ORD-${timestamp}-${randomDigits}`;
+  }
+
+  // Set order type based on user field
+  if (this.user) {
+    this.orderType = "authenticated";
+  } else {
+    this.orderType = "guest";
+  }
+
+  // Calculate totalAmount from items
   if (this.items && this.items.length > 0) {
     this.totalAmount = this.items.reduce((total, item) => {
       return total + item.price * item.quantity;
     }, 0);
   }
+
   next();
 });
 

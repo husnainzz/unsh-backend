@@ -2,6 +2,11 @@ const mongoose = require("mongoose");
 
 const productSchema = new mongoose.Schema(
   {
+    prodId: {
+      type: String,
+      unique: true,
+      // Remove required: true since it's auto-generated
+    },
     name: {
       type: String,
       required: [true, "Product name is required"],
@@ -19,12 +24,7 @@ const productSchema = new mongoose.Schema(
     category: {
       type: String,
       required: [true, "Product category is required"],
-      enum: ["shirts", "pants", "dresses", "shoes", "accessories", "outerwear"],
-    },
-    brand: {
-      type: String,
-      required: [true, "Brand is required"],
-      trim: true,
+      enum: ["women", "girl", "boy"],
     },
     sizes: [
       {
@@ -45,16 +45,17 @@ const productSchema = new mongoose.Schema(
         ],
       },
     ],
-    colors: [
-      {
-        name: String,
-        hexCode: String,
-      },
-    ],
+    colors: [String],
     images: [
       {
-        type: String,
-        required: true,
+        url: {
+          type: String,
+          required: true,
+        },
+        featured: {
+          type: Boolean,
+          default: false,
+        },
       },
     ],
     stock: {
@@ -67,18 +68,11 @@ const productSchema = new mongoose.Schema(
       type: Boolean,
       default: true,
     },
-    tags: [String],
     rating: {
-      average: {
-        type: Number,
-        default: 0,
-        min: 0,
-        max: 5,
-      },
-      count: {
-        type: Number,
-        default: 0,
-      },
+      type: Number,
+      default: 0,
+      min: 0,
+      max: 5,
     },
   },
   {
@@ -86,12 +80,41 @@ const productSchema = new mongoose.Schema(
   }
 );
 
+// Pre-save hook to generate prodId
+productSchema.pre("save", function (next) {
+  if (!this.prodId) {
+    const timestamp = Date.now();
+    const randomDigits = Math.floor(1000 + Math.random() * 9000);
+    this.prodId = `PRO-${timestamp}-${randomDigits}`;
+  }
+  next();
+});
+
+// Ensure only one featured image per product
+productSchema.pre("save", function (next) {
+  if (this.images && this.images.length > 0) {
+    let featuredCount = 0;
+    this.images.forEach((image) => {
+      if (image.featured) featuredCount++;
+    });
+
+    if (featuredCount > 1) {
+      // Reset all to false and set first one as featured
+      this.images.forEach((image, index) => {
+        image.featured = index === 0;
+      });
+    } else if (featuredCount === 0 && this.images.length > 0) {
+      // Set first image as featured if none is featured
+      this.images[0].featured = true;
+    }
+  }
+  next();
+});
+
 // Index for search functionality
 productSchema.index({
   name: "text",
   description: "text",
-  brand: "text",
-  category: "text",
 });
 
 module.exports = mongoose.model("Product", productSchema);

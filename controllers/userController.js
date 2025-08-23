@@ -12,7 +12,14 @@ const generateToken = (userId) => {
 // @access  Public
 const registerUser = async (req, res) => {
   try {
-    const { name, email, password, phone, address, role } = req.body;
+    const { name, email, password, phoneNumber, address, role } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password || !phoneNumber) {
+      return res.status(400).json({
+        error: "Name, email, password, and phoneNumber are required",
+      });
+    }
 
     // Check if user already exists
     const userExists = await User.findOne({ email });
@@ -25,7 +32,7 @@ const registerUser = async (req, res) => {
       name,
       email,
       password,
-      phone,
+      phoneNumber,
       address,
       role,
     });
@@ -36,6 +43,7 @@ const registerUser = async (req, res) => {
         _id: user._id,
         name: user.name,
         email: user.email,
+        phoneNumber: user.phoneNumber,
         role: user.role,
         token,
       });
@@ -51,6 +59,12 @@ const registerUser = async (req, res) => {
 const loginUser = async (req, res) => {
   try {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        error: "Email and password are required",
+      });
+    }
 
     // Find user by email
     const user = await User.findOne({ email });
@@ -69,6 +83,7 @@ const loginUser = async (req, res) => {
       _id: user._id,
       name: user.name,
       email: user.email,
+      phoneNumber: user.phoneNumber,
       role: user.role,
       token,
     });
@@ -94,12 +109,12 @@ const getUserProfile = async (req, res) => {
 // @access  Private
 const updateUserProfile = async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
+    const { name, phoneNumber, address } = req.body;
 
     const user = await User.findById(req.user._id);
     if (user) {
       user.name = name || user.name;
-      user.phone = phone || user.phone;
+      user.phoneNumber = phoneNumber || user.phoneNumber;
       user.address = address || user.address;
 
       const updatedUser = await user.save();
@@ -107,7 +122,7 @@ const updateUserProfile = async (req, res) => {
         _id: updatedUser._id,
         name: updatedUser.name,
         email: updatedUser.email,
-        phone: updatedUser.phone,
+        phoneNumber: updatedUser.phoneNumber,
         address: updatedUser.address,
         role: updatedUser.role,
       });
@@ -124,9 +139,7 @@ const updateUserProfile = async (req, res) => {
 // @access  Private
 const getUserOrders = async (req, res) => {
   try {
-    const orders = await Order.find({ user: req.user._id })
-      .populate("items.product", "name images price")
-      .sort("-createdAt");
+    const orders = await Order.find({ user: req.user._id }).sort("-createdAt");
 
     res.json(orders);
   } catch (error) {
@@ -146,6 +159,75 @@ const getAllUsers = async (req, res) => {
   }
 };
 
+// @desc    Update user role (admin only)
+// @route   PUT /api/users/:id/role
+// @access  Private/Admin
+const updateUserRole = async (req, res) => {
+  try {
+    const { role } = req.body;
+
+    if (!["admin", "coordinator", "worker", "customer"].includes(role)) {
+      return res.status(400).json({ error: "Invalid role" });
+    }
+
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    user.role = role;
+    const updatedUser = await user.save();
+
+    res.json({
+      _id: updatedUser._id,
+      name: updatedUser.name,
+      email: updatedUser.email,
+      phoneNumber: updatedUser.phoneNumber,
+      role: updatedUser.role,
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// @desc    Toggle user active status (admin only)
+// @route   PATCH /api/users/:id/toggle-status
+// @access  Private/Admin
+const toggleUserStatus = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    // Prevent admin from deactivating themselves
+    if (user._id.toString() === req.user._id.toString()) {
+      return res
+        .status(400)
+        .json({ error: "Cannot deactivate your own account" });
+    }
+
+    user.isActive = !user.isActive;
+    await user.save();
+
+    res.json({
+      message: `User ${
+        user.isActive ? "activated" : "deactivated"
+      } successfully`,
+      user: {
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phoneNumber: user.phoneNumber,
+        role: user.role,
+        isActive: user.isActive,
+      },
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
 module.exports = {
   registerUser,
   loginUser,
@@ -153,4 +235,6 @@ module.exports = {
   updateUserProfile,
   getUserOrders,
   getAllUsers,
+  updateUserRole,
+  toggleUserStatus,
 };

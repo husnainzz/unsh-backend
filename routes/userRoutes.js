@@ -8,6 +8,8 @@ const {
   updateUserProfile,
   getUserOrders,
   getAllUsers,
+  updateUserRole,
+  toggleUserStatus,
 } = require("../controllers/userController");
 
 // Public routes
@@ -21,5 +23,7 @@ router.get("/orders", auth, getUserOrders);
 
 // Admin only routes
 router.get("/all", adminAuth, getAllUsers);
+router.put("/:id/role", adminAuth, updateUserRole);
+router.patch("/:id/toggle-status", adminAuth, toggleUserStatus);
 
 module.exports = router;

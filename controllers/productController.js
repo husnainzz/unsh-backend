@@ -9,7 +9,6 @@ const getProducts = async (req, res) => {
       page = 1,
       limit = 10,
       category,
-      brand,
       minPrice,
       maxPrice,
       search,
@@ -20,7 +19,6 @@ const getProducts = async (req, res) => {
     // Build filter object
     const filter = { isActive: true };
     if (category) filter.category = category;
-    if (brand) filter.brand = brand;
     if (minPrice || maxPrice) {
       filter.price = {};
       if (minPrice) filter.price.$gte = Number(minPrice);
@@ -67,12 +65,12 @@ const getAllProducts = async (req, res) => {
   }
 };
 
-// @desc    Get single product
-// @route   GET /api/products/:id
+// @desc    Get single product by prodId
+// @route   GET /api/products/:prodId
 // @access  Public
 const getProductById = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ prodId: req.params.prodId });
     if (!product || !product.isActive) {
       return res.status(404).json({ error: "Product not found" });
     }
@@ -94,15 +92,19 @@ const createProduct = async (req, res) => {
   }
 };
 
-// @desc    Update product (admin only)
-// @route   PUT /api/products/:id
+// @desc    Update product by prodId (admin only)
+// @route   PUT /api/products/:prodId
 // @access  Private/Admin
 const updateProduct = async (req, res) => {
   try {
-    const product = await Product.findByIdAndUpdate(req.params.id, req.body, {
-      new: true,
-      runValidators: true,
-    });
+    const product = await Product.findOneAndUpdate(
+      { prodId: req.params.prodId },
+      req.body,
+      {
+        new: true,
+        runValidators: true,
+      }
+    );
 
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
@@ -114,19 +116,19 @@ const updateProduct = async (req, res) => {
   }
 };
 
-// @desc    Delete product (admin only)
-// @route   DELETE /api/products/:id
+// @desc    Delete product by prodId (admin only)
+// @route   DELETE /api/products/:prodId
 // @access  Private/Admin
 const deleteProduct = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ prodId: req.params.prodId });
 
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
     }
 
     // Actually delete the product from database
-    await Product.findByIdAndDelete(req.params.id);
+    await Product.findOneAndDelete({ prodId: req.params.prodId });
 
     res.json({ message: "Product deleted successfully" });
   } catch (error) {
@@ -134,12 +136,12 @@ const deleteProduct = async (req, res) => {
   }
 };
 
-// @desc    Toggle product active state (admin only)
-// @route   PATCH /api/products/:id/toggle-status
+// @desc    Toggle product active state by prodId (admin only)
+// @route   PATCH /api/products/:prodId/toggle-status
 // @access  Private/Admin
 const toggleProductStatus = async (req, res) => {
   try {
-    const product = await Product.findById(req.params.id);
+    const product = await Product.findOne({ prodId: req.params.prodId });
 
     if (!product) {
       return res.status(404).json({ error: "Product not found" });
@@ -172,13 +174,16 @@ const getCategories = async (req, res) => {
   }
 };
 
-// @desc    Get product brands
-// @route   GET /api/products/brands
+// @desc    Get product by prodId (alias for getProductById)
+// @route   GET /api/products/prod/:prodId
 // @access  Public
-const getBrands = async (req, res) => {
+const getProductByProdId = async (req, res) => {
   try {
-    const brands = await Product.distinct("brand");
-    res.json(brands);
+    const product = await Product.findOne({ prodId: req.params.prodId });
+    if (!product || !product.isActive) {
+      return res.status(404).json({ error: "Product not found" });
+    }
+    res.json(product);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -188,10 +193,10 @@ module.exports = {
   getProducts,
   getAllProducts,
   getProductById,
+  getProductByProdId,
   createProduct,
   updateProduct,
   deleteProduct,
   toggleProductStatus,
   getCategories,
-  getBrands,
 };

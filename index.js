@@ -19,7 +19,7 @@ const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
     if (!origin) return callback(null, true);
-    
+
     const allowedOrigins = [
       process.env.FRONTEND_URL || "http://localhost:3000",
       "https://hopjob.airec.io",
@@ -29,23 +29,33 @@ const corsOptions = {
       "http://localhost:3000",
       "http://127.0.0.1:3000",
       "http://localhost:3001",
-      "http://127.0.0.1:3001"
+      "http://127.0.0.1:3001",
     ];
-    
-    console.log('CORS origin check:', origin, 'Allowed origins:', allowedOrigins);
-    
+
+    console.log(
+      "CORS origin check:",
+      origin,
+      "Allowed origins:",
+      allowedOrigins
+    );
+
     if (allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      console.log('CORS blocked origin:', origin);
-      callback(new Error('Not allowed by CORS'));
+      console.log("CORS blocked origin:", origin);
+      callback(new Error("Not allowed by CORS"));
     }
   },
   credentials: true,
   optionsSuccessStatus: 200,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept'],
-  preflightContinue: false
+  methods: ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+    "X-Requested-With",
+    "Accept",
+  ],
+  preflightContinue: false,
 };
 
 // Middleware
@@ -53,7 +63,11 @@ app.use(cors(corsOptions));
 
 // Request logging middleware
 app.use((req, res, next) => {
-  console.log(`${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${req.headers.origin || 'No origin'}`);
+  console.log(
+    `${new Date().toISOString()} - ${req.method} ${req.path} - Origin: ${
+      req.headers.origin || "No origin"
+    }`
+  );
   next();
 });
 
